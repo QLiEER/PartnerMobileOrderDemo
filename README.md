@@ -14,13 +14,15 @@ Info.plist 的 NSCameraDescriptionUsage 請記得填寫，用途是掃描 QRCode
 或是自行用 Carthage 安裝，以下為有用到的第三方：
 
 ```
-github “Alamofire/Alamofire” ~> 4.5
-github “pkluz/PKHUD” ~> 4.0
-github “ashleymills/Reachability.swift”
-github “realm/realm-cocoa” 
-github “Hearst-DD/ObjectMapper” ~> 3.1
-github “SwiftyJSON/SwiftyJSON”
-github “Square/Valet”
+github "Alamofire/Alamofire" ~> 4.5
+github "pkluz/PKHUD"
+github "ashleymills/Reachability.swift"
+github "realm/realm-cocoa"  ~> 5.5.0
+github "SwiftyJSON/SwiftyJSON"
+github "Square/Valet"  ~> 3.2.8 
+github "tristanhimmelman/ObjectMapper" ~> 3.4 
+github "tristanhimmelman/AlamofireObjectMapper" ~> 5.2.1
+github "marmelroy/PhoneNumberKit"
 ```
 
 # 請 Embed Frameworks 
