@@ -133,7 +133,7 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
 
             var theError: SyncError?
             let ex = expectation(description: "Waiting for error handler to be called...")
-            SyncManager.shared.errorHandler = { (error, session) in
+            SyncManager.shared.errorHandler = { (error, _) in
                 if let error = error as? SyncError {
                     theError = error
                 } else {
@@ -162,7 +162,7 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
             try autoreleasepool {
                 let realm = try synchronouslyOpenRealm(url: realmURL, user: user)
                 let ex = expectation(description: "Waiting for error handler to be called...")
-                SyncManager.shared.errorHandler = { (error, session) in
+                SyncManager.shared.errorHandler = { (error, _) in
                     if let error = error as? SyncError {
                         theError = error
                     } else {
@@ -302,6 +302,41 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
         XCTAssertFalse(RLMHasCachedRealmForPath(pathOnDisk))
     }
 
+    func testDownloadRealmToCustomPath() {
+        let user = try! synchronouslyLogInUser(for: basicCredentials(register: isParent), server: authURL)
+        if !isParent {
+            populateRealm(user: user, url: realmURL)
+            return
+        }
+
+        // Wait for the child process to upload everything.
+        executeChild()
+
+        let ex = expectation(description: "download-realm")
+        let customFileURL = realmURLForFile("copy")
+        var config = user.configuration(realmURL: realmURL, fullSynchronization: true)
+        config.fileURL = customFileURL
+        let pathOnDisk = ObjectiveCSupport.convert(object: config).pathOnDisk
+        XCTAssertEqual(pathOnDisk, customFileURL.path)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: pathOnDisk))
+        Realm.asyncOpen(configuration: config) { realm, error in
+            XCTAssertNil(error)
+            self.checkCount(expected: self.bigObjectCount, realm!, SwiftHugeSyncObject.self)
+            ex.fulfill()
+        }
+        func fileSize(path: String) -> Int {
+            if let attr = try? FileManager.default.attributesOfItem(atPath: path) {
+                return attr[.size] as! Int
+            }
+            return 0
+        }
+        XCTAssertFalse(RLMHasCachedRealmForPath(pathOnDisk))
+        waitForExpectations(timeout: 10.0, handler: nil)
+        XCTAssertGreaterThan(fileSize(path: pathOnDisk), 0)
+        XCTAssertFalse(RLMHasCachedRealmForPath(pathOnDisk))
+    }
+
+
     func testCancelDownloadRealm() {
         let user = try! synchronouslyLogInUser(for: basicCredentials(register: isParent), server: authURL)
         if !isParent {
@@ -352,6 +387,48 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
             }
         }
         waitForExpectations(timeout: 10.0, handler: nil)
+    }
+
+    func testAsyncOpenTimeout() {
+        let syncTimeoutOptions = SyncTimeoutOptions()
+        syncTimeoutOptions.connectTimeout = 3000
+        SyncManager.shared.timeoutOptions = syncTimeoutOptions
+
+        // The server proxy adds a 2 second delay, so a 3 second timeout should succeed
+        autoreleasepool {
+            let user = try! synchronouslyLogInUser(for: basicCredentials(register: true), server: slowConnectAuthURL)
+            let config = user.configuration(cancelAsyncOpenOnNonFatalErrors: true)
+            let ex = expectation(description: "async open")
+            Realm.asyncOpen(configuration: config) { _, error in
+                XCTAssertNil(error)
+                ex.fulfill()
+            }
+            waitForExpectations(timeout: 10.0, handler: nil)
+            user.logOut()
+        }
+
+        self.resetSyncManager()
+        self.setupSyncManager()
+
+        // and a 1 second timeout should fail
+        autoreleasepool {
+            let user = try! synchronouslyLogInUser(for: basicCredentials(register: true), server: slowConnectAuthURL)
+            let config = user.configuration(cancelAsyncOpenOnNonFatalErrors: true)
+
+            syncTimeoutOptions.connectTimeout = 1000
+            SyncManager.shared.timeoutOptions = syncTimeoutOptions
+
+            let ex = expectation(description: "async open")
+            Realm.asyncOpen(configuration: config) { _, error in
+                XCTAssertNotNil(error)
+                if let error = error as NSError? {
+                    XCTAssertEqual(error.code, Int(ETIMEDOUT))
+                    XCTAssertEqual(error.domain, NSPOSIXErrorDomain)
+                }
+                ex.fulfill()
+            }
+            waitForExpectations(timeout: 4.0, handler: nil)
+        }
     }
 
     // MARK: - Administration
@@ -439,41 +516,6 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
         }
     }
 
-    // MARK: - Offline client reset
-
-    func testOfflineClientReset() {
-        let user = try! synchronouslyLogInUser(for: basicCredentials(), server: authURL)
-
-        let sourceFileURL = Bundle(for: type(of: self)).url(forResource: "sync-1.x", withExtension: "realm")!
-        let fileName = "\(UUID()).realm"
-        let fileURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(fileName)
-        try! FileManager.default.copyItem(at: sourceFileURL, to: fileURL)
-
-        let syncConfig = RLMSyncConfiguration(user: user, realmURL: realmURL)
-        syncConfig.customFileURL = fileURL
-        let config = Realm.Configuration(syncConfiguration: ObjectiveCSupport.convert(object: syncConfig))
-        do {
-            _ = try Realm(configuration: config)
-        } catch let e as Realm.Error where e.code == .incompatibleSyncedFile {
-            var backupConfiguration = e.backupConfiguration
-            XCTAssertNotNil(backupConfiguration)
-
-            // Open the backup Realm with a schema subset since it was created using the schema from .NET's unit tests.
-            backupConfiguration!.objectTypes = [Person.self]
-            let backupRealm = try! Realm(configuration: backupConfiguration!)
-
-            let people = backupRealm.objects(Person.self)
-            XCTAssertEqual(people.count, 1)
-            XCTAssertEqual(people[0].FirstName, "John")
-            XCTAssertEqual(people[0].LastName, "Smith")
-
-            // Verify that we can now successfully open the original synced Realm.
-            _ = try! Realm(configuration: config)
-        } catch {
-            fatalError("Unexpected error: \(error)")
-        }
-    }
-
     // MARK: - Certificate Pinning
 
     func testSecureConnectionToLocalhostWithDefaultSecurity() {
@@ -482,7 +524,7 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
                                         serverValidationPolicy: .system)
 
         let ex = expectation(description: "Waiting for error handler to be called")
-        SyncManager.shared.errorHandler = { (error, session) in
+        SyncManager.shared.errorHandler = { (_, _) in
             ex.fulfill()
         }
 
@@ -494,7 +536,7 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
         let user = try! synchronouslyLogInUser(for: basicCredentials(), server: authURL)
         let config = user.configuration(realmURL: URL(string: "realms://localhost:9443/~/default"),
                                         serverValidationPolicy: .none)
-        SyncManager.shared.errorHandler = { (error, session) in
+        SyncManager.shared.errorHandler = { (error, _) in
             XCTFail("Unexpected connection failure: \(error)")
         }
 
@@ -511,7 +553,7 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
 
         let config = user.configuration(realmURL: URL(string: "realms://localhost:9443/~/default"),
                                         serverValidationPolicy: .pinCertificate(path: certURL))
-        SyncManager.shared.errorHandler = { (error, session) in
+        SyncManager.shared.errorHandler = { (error, _) in
             XCTFail("Unexpected connection failure: \(error)")
         }
 
@@ -529,11 +571,17 @@ class SwiftObjectServerTests: SwiftSyncTestCase {
                                         serverValidationPolicy: .pinCertificate(path: certURL))
 
         let ex = expectation(description: "Waiting for error handler to be called")
-        SyncManager.shared.errorHandler = { (error, session) in
+        SyncManager.shared.errorHandler = { (_, _) in
             ex.fulfill()
         }
 
         _ = try! Realm(configuration: config)
         self.waitForExpectations(timeout: 4.0)
+    }
+
+    private func realmURLForFile(_ fileName: String) -> URL {
+        let testDir = RLMRealmPathForFile("realm-object-server")
+        let directory = URL(fileURLWithPath: testDir, isDirectory: true)
+        return directory.appendingPathComponent(fileName, isDirectory: false)
     }
 }

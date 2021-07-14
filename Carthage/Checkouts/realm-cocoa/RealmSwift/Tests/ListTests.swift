@@ -19,14 +19,6 @@
 import XCTest
 import RealmSwift
 
-#if !swift(>=4.1)
-extension Sequence {
-    func compactMap<ElementOfResult>(_ transform: (Self.Element) throws -> ElementOfResult?) rethrows -> [ElementOfResult] {
-        return try flatMap(transform)
-    }
-}
-#endif
-
 class ListTests: TestCase {
     var str1: SwiftStringObject?
     var str2: SwiftStringObject?
@@ -75,7 +67,6 @@ class ListTests: TestCase {
         super.tearDown()
     }
 
-#if swift(>=4)
     override class var defaultTestSuite: XCTestSuite {
         // Don't run tests for the base class
         if isEqual(ListTests.self) {
@@ -83,15 +74,6 @@ class ListTests: TestCase {
         }
         return super.defaultTestSuite
     }
-#else
-    override class func defaultTestSuite() -> XCTestSuite {
-        // Don't run tests for the base class
-        if isEqual(ListTests.self) {
-            return XCTestSuite(name: "empty")
-        }
-        return super.defaultTestSuite()
-    }
-#endif
 
     func testPrimitive() {
         let obj = SwiftListObject()
@@ -214,8 +196,8 @@ class ListTests: TestCase {
         assertEqual(str2, array[0])
         assertEqual(str1, array[1])
 
-        assertThrows(_ = array.insert(str2, at: 200))
-        assertThrows(_ = array.insert(str2, at: -200))
+        assertThrows(array.insert(str2, at: 200))
+        assertThrows(array.insert(str2, at: -200))
     }
 
     func testRemoveAtIndex() {
@@ -603,6 +585,41 @@ class ListTests: TestCase {
             }
         }
     }
+
+    func testUnmanagedListComparison() {
+        let obj = SwiftIntObject()
+        obj.intCol = 5
+        let obj2 = SwiftIntObject()
+        obj2.intCol = 6
+        let obj3 = SwiftIntObject()
+        obj3.intCol = 8
+
+        let objects = [obj, obj2, obj3]
+        let objects2 = [obj, obj2]
+
+        let list1 = List<SwiftIntObject>()
+        let list2 = List<SwiftIntObject>()
+        XCTAssertEqual(list1, list2, "Empty instances should be equal by `==` operator")
+
+        list1.append(objectsIn: objects)
+        list2.append(objectsIn: objects)
+
+        let list3 = List<SwiftIntObject>()
+        list3.append(objectsIn: objects2)
+
+        XCTAssertTrue(list1 !== list2, "instances should not be identical")
+
+        XCTAssertEqual(list1, list2, "instances should be equal by `==` operator")
+        XCTAssertNotEqual(list1, list3, "instances should be equal by `==` operator")
+
+        XCTAssertTrue(list1.isEqual(list2), "instances should be equal by `isEqual` method")
+        XCTAssertTrue(!list1.isEqual(list3), "instances should be equal by `isEqual` method")
+
+        XCTAssertEqual(Array(list1), Array(list2), "instances converted to Swift.Array should be equal")
+        XCTAssertNotEqual(Array(list1), Array(list3), "instances converted to Swift.Array should be equal")
+        list3.append(obj3)
+        XCTAssertEqual(list1, list3, "instances should be equal by `==` operator")
+    }
 }
 
 class ListStandaloneTests: ListTests {
@@ -687,7 +704,7 @@ class ListRetrievedTests: ListTests {
 }
 
 /// Ensure the range replaceable collection methods behave correctly when emulated for Swift 4 and later.
-class ListRRCMethodsTests: XCTestCase {
+class ListRRCMethodsTests: TestCase {
     private func compare(array: [Int], with list: List<SwiftIntObject>) {
         guard array.count == list.count else {
             XCTFail("Array and list have different sizes (\(array.count) and \(list.count), respectively).")
@@ -723,9 +740,10 @@ class ListRRCMethodsTests: XCTestCase {
         array = makeArray(from: list)
     }
 
-#if swift(>=4.0)
     func testSubscript() {
+        list[0] = SwiftIntObject(value: [5])
         list[1..<4] = createListObject([10, 11, 12]).intArray[0..<2]
+        array[0] = 5
         array[1..<4] = [10, 11]
         compare(array: array, with: list)
     }
@@ -741,7 +759,6 @@ class ListRRCMethodsTests: XCTestCase {
         list.removeSubrange(list.indices)
         XCTAssertTrue(list.isEmpty)
     }
-#endif
 
     func testRemoveFirst() {
         list.removeFirst()
@@ -753,6 +770,11 @@ class ListRRCMethodsTests: XCTestCase {
         list.removeFirst(3)
         array.removeFirst(3)
         compare(array: array, with: list)
+    }
+
+    func testRemoveFirstInvalid() {
+        assertThrows(list.removeFirst(-1))
+        assertThrows(list.removeFirst(100))
     }
 
     func testRemoveLastFew() {

@@ -3,10 +3,11 @@
 import PackageDescription
 import Foundation
 
-let coreVersionStr = "5.23.5"
-let cocoaVersionStr = "3.20.0"
+let coreVersionStr = "6.2.4"
+let cocoaVersionStr = "5.5.2"
 
 let coreVersionPieces = coreVersionStr.split(separator: ".")
+let coreVersionExtra = coreVersionPieces[2].split(separator: "-")
 let cxxSettings: [CXXSetting] = [
     .headerSearchPath("."),
     .headerSearchPath("include"),
@@ -22,13 +23,19 @@ let cxxSettings: [CXXSetting] = [
 
     .define("REALM_VERSION_MAJOR", to: String(coreVersionPieces[0])),
     .define("REALM_VERSION_MINOR", to: String(coreVersionPieces[1])),
-    .define("REALM_VERSION_PATCH", to: String(coreVersionPieces[2])),
-    .define("REALM_VERSION_EXTRA", to: "\"\""),
+    .define("REALM_VERSION_PATCH", to: String(coreVersionExtra[0])),
+    .define("REALM_VERSION_EXTRA", to: "\"\(coreVersionExtra.count > 1 ? String(coreVersionExtra[1]) : "")\""),
     .define("REALM_VERSION_STRING", to: "\"\(coreVersionStr)\""),
 ]
 
 let package = Package(
     name: "Realm",
+    platforms: [
+        .macOS(.v10_10),
+        .iOS(.v11),
+        .tvOS(.v9),
+        .watchOS(.v2)
+    ],
     products: [
         .library(
             name: "Realm",
@@ -45,37 +52,60 @@ let package = Package(
             name: "Realm",
             dependencies: ["RealmCore"],
             path: ".",
-            exclude: [
-                "Realm/NSError+RLMSync.m",
-                "Realm/RLMJSONModels.m",
-                "Realm/RLMNetworkClient.mm",
-                "Realm/RLMRealm+Sync.mm",
-                "Realm/RLMRealmConfiguration+Sync.mm",
-                "Realm/RLMSyncConfiguration.mm",
-                "Realm/RLMSyncCredentials.m",
-                "Realm/RLMSyncManager.mm",
-                "Realm/RLMSyncPermission.mm",
-                "Realm/RLMSyncPermissionResults.mm",
-                "Realm/RLMSyncSession.mm",
-                "Realm/RLMSyncSessionRefreshHandle.mm",
-                "Realm/RLMSyncSubscription.mm",
-                "Realm/RLMSyncUser.mm",
-                "Realm/RLMSyncUtil.mm",
-
-                "Realm/ObjectServerTests",
-                "Realm/Swift",
-                "Realm/Tests",
-                "Realm/TestUtils",
-                "Realm/ObjectStore/external",
-                "Realm/ObjectStore/tests",
-                "Realm/ObjectStore/src/server",
-                "Realm/ObjectStore/src/sync",
-                "Realm/ObjectStore/src/impl/generic",
-                "Realm/ObjectStore/src/impl/epoll",
-                "Realm/ObjectStore/src/impl/android",
-                "Realm/ObjectStore/src/impl/windows",
+            sources: [
+                "Realm/ObjectStore/src/binding_callback_thread_observer.cpp",
+                "Realm/ObjectStore/src/collection_notifications.cpp",
+                "Realm/ObjectStore/src/impl/apple/external_commit_helper.cpp",
+                "Realm/ObjectStore/src/impl/apple/keychain_helper.cpp",
+                "Realm/ObjectStore/src/impl/collection_change_builder.cpp",
+                "Realm/ObjectStore/src/impl/collection_notifier.cpp",
+                "Realm/ObjectStore/src/impl/list_notifier.cpp",
+                "Realm/ObjectStore/src/impl/object_notifier.cpp",
+                "Realm/ObjectStore/src/impl/primitive_list_notifier.cpp",
+                "Realm/ObjectStore/src/impl/realm_coordinator.cpp",
+                "Realm/ObjectStore/src/impl/results_notifier.cpp",
+                "Realm/ObjectStore/src/impl/transact_log_handler.cpp",
+                "Realm/ObjectStore/src/impl/weak_realm_notifier.cpp",
+                "Realm/ObjectStore/src/index_set.cpp",
+                "Realm/ObjectStore/src/list.cpp",
+                "Realm/ObjectStore/src/object.cpp",
+                "Realm/ObjectStore/src/object_changeset.cpp",
+                "Realm/ObjectStore/src/object_schema.cpp",
+                "Realm/ObjectStore/src/object_store.cpp",
+                "Realm/ObjectStore/src/results.cpp",
+                "Realm/ObjectStore/src/schema.cpp",
+                "Realm/ObjectStore/src/shared_realm.cpp",
+                "Realm/ObjectStore/src/thread_safe_reference.cpp",
+                "Realm/ObjectStore/src/util/scheduler.cpp",
+                "Realm/ObjectStore/src/util/uuid.cpp",
+                "Realm/RLMAccessor.mm",
+                "Realm/RLMAnalytics.mm",
+                "Realm/RLMArray.mm",
+                "Realm/RLMClassInfo.mm",
+                "Realm/RLMCollection.mm",
+                "Realm/RLMConstants.m",
+                "Realm/RLMListBase.mm",
+                "Realm/RLMManagedArray.mm",
+                "Realm/RLMMigration.mm",
+                "Realm/RLMObject.mm",
+                "Realm/RLMObjectBase.mm",
+                "Realm/RLMObjectSchema.mm",
+                "Realm/RLMObjectStore.mm",
+                "Realm/RLMObservation.mm",
+                "Realm/RLMOptionalBase.mm",
+                "Realm/RLMPredicateUtil.mm",
+                "Realm/RLMProperty.mm",
+                "Realm/RLMQueryUtil.mm",
+                "Realm/RLMRealm.mm",
+                "Realm/RLMRealmConfiguration.mm",
+                "Realm/RLMRealmUtil.mm",
+                "Realm/RLMResults.mm",
+                "Realm/RLMSchema.mm",
+                "Realm/RLMSwiftSupport.m",
+                "Realm/RLMThreadSafeReference.mm",
+                "Realm/RLMUpdateChecker.mm",
+                "Realm/RLMUtil.mm"
             ],
-            sources: ["Realm"],
             publicHeadersPath: "include",
             cxxSettings: cxxSettings
         ),
@@ -128,5 +158,5 @@ let package = Package(
             exclude: ["TestUtils.mm"]
         )
     ],
-    cxxLanguageStandard: .cxx14
+    cxxLanguageStandard: .cxx1z
 )

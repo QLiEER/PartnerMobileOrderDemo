@@ -16,9 +16,9 @@ class ViewController: UIViewController, QLiEERMobileSDKDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         let deviceToken = UserDefaults.standard.object(forKey: "deviceToken") as? String ?? ""
-        // Do any additional setup after loading the view, typically from a nib.
+        print("SDK version: \(QLiEERMobileSDK.getVersion())")
         QLiEERMobileSDK.set(environment: .Stage)
-        QLiEERMobileSDK.launchMobileViewController(accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdG9yZUlkIjoiODFkNDliOTAtOTY5NC0xMWU3LTg0NmItMWYzZTliYmM4MWMxIiwidXNlcklkIjoiZjQwMWEzNjAtYTIzMy0xMWU4LThhNDItYmIxOTY4ODNlMDIyIiwiaWF0IjoxNTcyODU4MTEyLCJleHAiOjE1NzI4NTgyOTJ9.hgdETOK2V-S6n3wflcDqC_9bxGQz9NWK8j8U8TjwAzE", deviceToken: deviceToken, pushType: .inline, withCancelBtn: true, mobileSDKDelegate: self, completion: { result, vc in
+        QLiEERMobileSDK.launchMobileViewController(accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdG9yZUlkIjoiODFkNDliOTAtOTY5NC0xMWU3LTg0NmItMWYzZTliYmM4MWMxIiwidXNlcklkIjoiNTQ0MWIxYzAtOWQ2NS0xMWU5LWFjYjktMjUxMDE1YTUyZjE3IiwiaWF0IjoxNjI2MjU5MjE1LCJleHAiOjE2MjYyNTkzOTV9.aKbcUw5cnatYtyA-Ry9O94isgfyUGIjdEGXc0_y8ORQ", deviceToken: deviceToken, pushType: .inline, withCancelBtn: true, mobileSDKDelegate: self, completion: { result, vc in
                 // 結果為0代表正常
                 if result == 0 {
                     QLiEERMobileSDK.start()
