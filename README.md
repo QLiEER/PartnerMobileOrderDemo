@@ -10,19 +10,17 @@ Info.plist 的 NSCameraDescriptionUsage 請記得填寫，用途是掃描 QRCode
 請記得到 Target > Build Setting > Always Embed Swift Standard Libraries 勾選為 YES
 
 # 必要的Frameworks
-可以至 https://www.dropbox.com/s/ai98aic6i7ycgwl/QLiEER_SDK_Required_Frameworks.zip?dl=0 下載已經 build 好的版本。
-或是自行用 Carthage 安裝，以下為有用到的第三方：
+自行用 Carthage 安裝，以下為有用到的第三方：
 
 ```
-github "Alamofire/Alamofire" ~> 4.5
-github "pkluz/PKHUD"
-github "ashleymills/Reachability.swift"
-github "realm/realm-cocoa"  ~> 5.5.0
+github "Alamofire/Alamofire" 
+github "QLiEER/Reachability.swift"
+github "realm/realm-cocoa" ~> 5.5.0
 github "SwiftyJSON/SwiftyJSON"
 github "Square/Valet"  ~> 3.2.8 
 github "tristanhimmelman/ObjectMapper" ~> 3.4 
-github "tristanhimmelman/AlamofireObjectMapper" ~> 5.2.1
 github "marmelroy/PhoneNumberKit"
+
 ```
 
 # 請 Embed Frameworks 

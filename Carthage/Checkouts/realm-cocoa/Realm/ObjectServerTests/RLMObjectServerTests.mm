@@ -21,12 +21,15 @@
 #import "RLMSyncSessionRefreshHandle+ObjectServerTests.h"
 #import "RLMSyncUser+ObjectServerTests.h"
 
+#import "RLMObjectSchema_Private.hpp"
 #import "RLMRealm+Sync.h"
 #import "RLMRealmConfiguration_Private.h"
 #import "RLMRealmUtil.hpp"
 #import "RLMRealm_Dynamic.h"
 #import "RLMRealm_Private.hpp"
+#import "RLMSchema_Private.h"
 #import "RLMSyncUtil_Private.h"
+
 #import "shared_realm.hpp"
 
 #pragma mark - Test objects
@@ -219,10 +222,11 @@
     __block XCTestExpectation *ex;
     [RLMSyncSessionRefreshHandle calculateFireDateUsingTestLogic:YES
                                         blockOnRefreshCompletion:^(BOOL success) {
-                                            XCTAssertTrue(success);
-                                            refreshCount++;
-                                            [ex fulfill];
-                                        }];
+        XCTAssertTrue(success);
+        if (refreshCount++ == 3) { // arbitrary choice; refreshes every second
+            [ex fulfill];
+        }
+    }];
     // Open the Realm.
     NSURL *url = REALM_URL();
     RLMSyncUser *user = [self logInUserForCredentials:[RLMObjectServerTests basicCredentialsWithName:NSStringFromSelector(_cmd)
@@ -232,7 +236,91 @@
     ex = [self expectationWithDescription:@"Timer fired"];
     [self waitForExpectationsWithTimeout:10 handler:nil];
     XCTAssertTrue(errorCount == 0);
-    XCTAssertTrue(refreshCount > 0);
+    XCTAssertTrue(refreshCount >= 4);
+}
+
+- (void)testLoginConnectionTimeoutFromManager {
+    // First create the user, talking directly to ROS
+    NSString *userName = NSStringFromSelector(_cmd);
+    @autoreleasepool {
+        RLMSyncCredentials *credentials = [RLMObjectServerTests basicCredentialsWithName:userName register:YES];
+        RLMSyncUser *user = [self logInUserForCredentials:credentials server:[NSURL URLWithString:@"http://127.0.0.1:9080"]];
+        [user logOut];
+    }
+
+    RLMSyncTimeoutOptions *timeoutOptions = [RLMSyncTimeoutOptions new];
+
+    // 9082 is a proxy which delays responding to requests
+    NSURL *authURL = [NSURL URLWithString:@"http://127.0.0.1:9082"];
+
+    // Login attempt should time out
+    timeoutOptions.connectTimeout = 1000.0;
+    RLMSyncManager.sharedManager.timeoutOptions = timeoutOptions;
+
+    RLMSyncCredentials *credentials = [RLMObjectServerTests basicCredentialsWithName:userName register:NO];
+    XCTestExpectation *ex = [self expectationWithDescription:@"Login should time out"];
+    [RLMSyncUser logInWithCredentials:credentials authServerURL:authURL
+                         onCompletion:^(RLMSyncUser *user, NSError *error) {
+        XCTAssertNil(user);
+        XCTAssertNotNil(error);
+        XCTAssertEqualObjects(error.domain, NSURLErrorDomain);
+        XCTAssertEqual(error.code, NSURLErrorTimedOut);
+        [ex fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:2.0 handler:nil];
+
+    // Login attempt should succeeed
+    timeoutOptions.connectTimeout = 3000.0;
+    RLMSyncManager.sharedManager.timeoutOptions = timeoutOptions;
+
+    ex = [self expectationWithDescription:@"Login should succeed"];
+    [RLMSyncUser logInWithCredentials:credentials authServerURL:authURL
+                         onCompletion:^(RLMSyncUser *user, NSError *error) {
+        [user logOut];
+        XCTAssertNotNil(user);
+        XCTAssertNil(error);
+        [ex fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:3.0 handler:nil];
+}
+
+- (void)testLoginConnectionTimeoutDirect {
+    // First create the user, talking directly to ROS
+    NSString *userName = NSStringFromSelector(_cmd);
+    @autoreleasepool {
+        RLMSyncCredentials *credentials = [RLMObjectServerTests basicCredentialsWithName:userName register:YES];
+        RLMSyncUser *user = [self logInUserForCredentials:credentials server:[NSURL URLWithString:@"http://127.0.0.1:9080"]];
+        [user logOut];
+    }
+
+    // 9082 is a proxy which delays responding to requests
+    NSURL *authURL = [NSURL URLWithString:@"http://127.0.0.1:9082"];
+
+    // Login attempt should time out
+    RLMSyncCredentials *credentials = [RLMObjectServerTests basicCredentialsWithName:userName register:NO];
+    XCTestExpectation *ex = [self expectationWithDescription:@"Login should time out"];
+    [RLMSyncUser logInWithCredentials:credentials authServerURL:authURL
+                              timeout:1.0 callbackQueue:dispatch_get_main_queue()
+                         onCompletion:^(RLMSyncUser *user, NSError *error) {
+        XCTAssertNil(user);
+        XCTAssertNotNil(error);
+        XCTAssertEqualObjects(error.domain, NSURLErrorDomain);
+        XCTAssertEqual(error.code, NSURLErrorTimedOut);
+        [ex fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:2.0 handler:nil];
+
+    // Login attempt should succeeed
+    ex = [self expectationWithDescription:@"Login should succeed"];
+    [RLMSyncUser logInWithCredentials:credentials authServerURL:authURL
+                              timeout:3.0 callbackQueue:dispatch_get_main_queue()
+                         onCompletion:^(RLMSyncUser *user, NSError *error) {
+        [user logOut];
+        XCTAssertNotNil(user);
+        XCTAssertNil(error);
+        [ex fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:3.0 handler:nil];
 }
 
 #pragma mark - Users
@@ -1662,6 +1750,34 @@ static const NSInteger NUMBER_OF_BIG_OBJECTS = 2;
     [self waitForExpectationsWithTimeout:2.0 handler:nil];
 }
 
+- (void)testAsyncOpenConnectionTimeout {
+    NSString *userName = NSStringFromSelector(_cmd);
+    // 9083 is a proxy which delays responding to requests
+    NSURL *authURL = [NSURL URLWithString:@"http://127.0.0.1:9083"];
+    RLMSyncUser *user = [self logInUserForCredentials:[RLMObjectServerTests basicCredentialsWithName:userName register:YES]
+                                               server:authURL];
+    RLMRealmConfiguration *c = [user configuration];
+    RLMSyncConfiguration *syncConfig = c.syncConfiguration;
+    syncConfig.cancelAsyncOpenOnNonFatalErrors = true;
+    c.syncConfiguration = syncConfig;
+
+    RLMSyncTimeoutOptions *timeoutOptions = [RLMSyncTimeoutOptions new];
+    timeoutOptions.connectTimeout = 1000.0;
+    RLMSyncManager.sharedManager.timeoutOptions = timeoutOptions;
+
+    XCTestExpectation *ex = [self expectationWithDescription:@"async open"];
+    [RLMRealm asyncOpenWithConfiguration:c
+                           callbackQueue:dispatch_get_main_queue()
+                                callback:^(RLMRealm *realm, NSError *error) {
+        XCTAssertNotNil(error);
+        XCTAssertEqual(error.code, ETIMEDOUT);
+        XCTAssertEqual(error.domain, NSPOSIXErrorDomain);
+        XCTAssertNil(realm);
+        [ex fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:10.0 handler:nil];
+}
+
 #pragma mark - Compact on Launch
 
 - (void)testCompactOnLaunch {
@@ -1712,100 +1828,6 @@ static const NSInteger NUMBER_OF_BIG_OBJECTS = 2;
     XCTAssertLessThan(finalSize, initialSize);
     XCTAssertLessThanOrEqual(finalSize, usedSize + 4096U);
 }
-
-#pragma mark - Offline Client Reset
-
-- (void)testOfflineClientReset {
-    NSError *error;
-    RLMSyncUser *user = [self logInUserForCredentials:[RLMObjectServerTests basicCredentialsWithName:NSStringFromSelector(_cmd)
-                                                                                            register:YES]
-                                               server:[RLMObjectServerTests authServerURL]];
-    NSURL *sourceFileURL = [[NSBundle bundleForClass:[self class]] URLForResource:@"sync-1.x" withExtension:@"realm"];
-    NSString *fileName = [NSString stringWithFormat:@"%@.realm", [NSUUID new]];
-    NSURL *fileURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:fileName]];
-    [NSFileManager.defaultManager copyItemAtURL:sourceFileURL toURL:fileURL error:&error];
-    XCTAssertNil(error);
-    if (error) {
-        return;
-    }
-
-    RLMRealmConfiguration *configuration = [user configurationWithURL:REALM_URL() fullSynchronization:true];
-    RLMSyncConfiguration *syncConfig = configuration.syncConfiguration;
-    syncConfig.customFileURL = fileURL;
-    configuration.syncConfiguration = syncConfig;
-
-    RLMRealm *realm = [RLMRealm realmWithConfiguration:configuration error:&error];
-    XCTAssertNil(realm);
-    XCTAssertEqualObjects(error.domain, RLMErrorDomain);
-    XCTAssertEqual(error.code, RLMErrorIncompatibleSyncedFile);
-    RLMRealmConfiguration *backupConfiguration = error.userInfo[RLMBackupRealmConfigurationErrorKey];
-    XCTAssertNotNil(backupConfiguration);
-
-    // Open the backup Realm with a schema subset since it was created using the schema from .NET's unit tests.
-    // The Person class is declared in SwiftObjectServerTests.swift.
-    backupConfiguration.objectClasses = @[NSClassFromString(@"Person")];
-
-    error = nil;
-    RLMRealm *backupRealm = [RLMRealm realmWithConfiguration:backupConfiguration error:&error];
-    XCTAssertNotNil(backupRealm);
-    XCTAssertNil(error);
-
-    RLMResults *people = [backupRealm allObjects:@"Person"];
-    XCTAssertEqual(people.count, 1u);
-    XCTAssertEqualObjects([people[0] valueForKey:@"FirstName"], @"John");
-    XCTAssertEqualObjects([people[0] valueForKey:@"LastName"], @"Smith");
-
-    error = nil;
-    realm = [RLMRealm realmWithConfiguration:configuration error:&error];
-    XCTAssertNotNil(realm);
-    XCTAssertNil(error);
-}
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated"
-- (void)testAutomaticSyncConfiguration {
-    NSURL *server = [RLMObjectServerTests authServerURL];
-
-    // Automatic configuration should throw when there are no logged-in users.
-    XCTAssertThrows([RLMSyncConfiguration automaticConfiguration]);
-
-    RLMSyncCredentials *credsA = [RLMObjectServerTests basicCredentialsWithName:@"a" register:YES];
-    RLMSyncUser *userA = [self logInUserForCredentials:credsA server:server];
-
-    // Now that there's a logged-in user, we should be able to retrieve the configuration.
-    RLMRealmConfiguration *configuration = [RLMSyncConfiguration automaticConfiguration];
-    XCTAssert(configuration);
-
-    @autoreleasepool {
-        // And open it successfully.
-        RLMRealm *realm = [self openRealmWithConfiguration:configuration];
-        [self waitForDownloadsForRealm:realm];
-    }
-
-
-    RLMSyncCredentials *credsB = [RLMObjectServerTests basicCredentialsWithName:@"b" register:YES];
-    RLMSyncUser *userB = [self logInUserForCredentials:credsB server:server];
-
-    // Automatic configuration should throw since there's more than one logged-in user.
-    XCTAssertThrows([RLMSyncConfiguration automaticConfiguration]);
-
-    // It should still be possible to explicitly retrieve an automatic configuration for a user.
-    RLMRealmConfiguration *configurationA = [RLMSyncConfiguration automaticConfigurationForUser:userA];
-    XCTAssert(configurationA);
-    XCTAssertEqualObjects(configuration.syncConfiguration, configurationA.syncConfiguration);
-
-    RLMRealmConfiguration *configurationB = [RLMSyncConfiguration automaticConfigurationForUser:userB];
-    XCTAssert(configurationB);
-    XCTAssertNotEqualObjects(configuration.syncConfiguration, configurationB.syncConfiguration);
-
-
-    [userB logOut];
-
-    // Now that we're back to a single logged-in user, we should be able to retrieve the configuration.
-    configuration = [RLMSyncConfiguration automaticConfiguration];
-    XCTAssert(configuration);
-}
-#pragma clang diagnostic pop
 
 #pragma mark - Partial sync
 
@@ -1898,6 +1920,18 @@ static const NSInteger NUMBER_OF_BIG_OBJECTS = 2;
     RLMSyncUser *user = [self logInUserForCredentials:creds server:server];
     RLMRealmConfiguration *configuration = [user configuration];
     return [self openRealmWithConfiguration:configuration];
+}
+
+- (void)testAllSubscriptionsChecksThatRealmIsQBS {
+    RLMRealm *nonsyncRealm = [RLMRealm defaultRealm];
+    RLMAssertThrowsWithReason(nonsyncRealm.subscriptions, @"query-based sync");
+
+    NSString *name = NSStringFromSelector(_cmd);
+    NSURL *server = [RLMObjectServerTests authServerURL];
+    RLMSyncCredentials *creds = [RLMObjectServerTests basicCredentialsWithName:name register:YES];
+    RLMSyncUser *user = [self logInUserForCredentials:creds server:server];
+    RLMRealm *fullsyncRealm = [self openRealmWithConfiguration:[user configurationWithURL:[NSURL URLWithString:@"realms://localhost:9443/~/default"] fullSynchronization:YES]];
+    RLMAssertThrowsWithReason(fullsyncRealm.subscriptions, @"query-based sync");
 }
 
 - (void)testAllSubscriptionsReportsNewlyCreatedSubscription {
@@ -1993,6 +2027,9 @@ static const NSInteger NUMBER_OF_BIG_OBJECTS = 2;
 }
 
 - (void)testSubscriptionWithName {
+    RLMRealm *nonsyncRealm = [RLMRealm defaultRealm];
+    XCTAssertThrows([nonsyncRealm subscriptionWithName:@"name"]);
+
     RLMRealm *realm = [self partialRealmWithName:_cmd];
     XCTAssertNil([realm subscriptionWithName:@"query"]);
 
@@ -2196,8 +2233,6 @@ static NSURL *certificateURL(NSString *filename) {
 }
 
 - (void)verifyOpenFails:(RLMRealmConfiguration *)config {
-    [self openRealmWithConfiguration:config];
-
     XCTestExpectation *expectation = [self expectationWithDescription:@"wait for error"];
     RLMSyncManager.sharedManager.errorHandler = ^(NSError *error, __unused RLMSyncSession *session) {
         XCTAssertTrue([error.domain isEqualToString:RLMSyncErrorDomain]);
@@ -2205,6 +2240,7 @@ static NSURL *certificateURL(NSString *filename) {
         [expectation fulfill];
     };
 
+    [self openRealmWithConfiguration:config];
     [self waitForExpectationsWithTimeout:20.0 handler:nil];
 }
 
@@ -2316,6 +2352,100 @@ static NSURL *certificateURL(NSString *filename) {
                                             expectedValue:@(RLMSyncConnectionStateDisconnected)];
     RLMSyncManager.sharedManager.customRequestHeaders = @{@"X-Other-Header": @"true"};
     [self waitForExpectations:@[ex3, ex4] timeout:4.0];
+}
+
+#pragma mark - Read Only
+
+- (RLMSyncUser *)userForTest:(SEL)sel {
+    return [self logInUserForCredentials:[RLMObjectServerTests basicCredentialsWithName:NSStringFromSelector(sel)
+                                                                               register:self.isParent]
+                                  server:[RLMObjectServerTests authServerURL]];
+}
+
+- (void)testPartialSyncCannotBeReadOnly {
+    RLMSyncUser *user = [self userForTest:_cmd];
+    RLMRealmConfiguration *config = [user configurationWithURL:nil fullSynchronization:NO];
+    RLMAssertThrowsWithReason(config.readOnly = true,
+                              @"Read-only mode is not supported for query-based sync.");
+}
+
+- (void)testOpenSynchronouslyInReadOnlyBeforeRemoteSchemaIsInitialized {
+    NSURL *url = REALM_URL();
+    RLMSyncUser *user = [self userForTest:_cmd];
+
+    if (self.isParent) {
+        RLMRealmConfiguration *config = [user configurationWithURL:url fullSynchronization:YES];
+        config.readOnly = true;
+        RLMRealm *realm = [RLMRealm realmWithConfiguration:config error:nil];
+        CHECK_COUNT(0, SyncObject, realm);
+        RLMRunChildAndWait();
+        [self waitForDownloadsForUser:user realms:@[realm] realmURLs:@[url] expectedCounts:@[@3]];
+    } else {
+        RLMRealm *realm = [self openRealmForURL:url user:user];
+        [self addSyncObjectsToRealm:realm descriptions:@[@"child-1", @"child-2", @"child-3"]];
+        [self waitForUploadsForRealm:realm];
+        CHECK_COUNT(3, SyncObject, realm);
+    }
+}
+
+- (void)testAddPropertyToReadOnlyRealmWithExistingLocalCopy {
+    NSURL *url = REALM_URL();
+    RLMSyncUser *user = [self userForTest:_cmd];
+
+    if (!self.isParent) {
+        RLMRealm *realm = [self openRealmForURL:url user:user];
+        [self addSyncObjectsToRealm:realm descriptions:@[@"child-1", @"child-2", @"child-3"]];
+        [self waitForUploadsForRealm:realm];
+        return;
+    }
+    RLMRunChildAndWait();
+
+    RLMRealmConfiguration *config = [user configurationWithURL:url fullSynchronization:YES];
+    config.readOnly = true;
+    @autoreleasepool {
+        (void)[self asyncOpenRealmWithConfiguration:config];
+    }
+
+    RLMObjectSchema *objectSchema = [RLMObjectSchema schemaForObjectClass:SyncObject.class];
+    objectSchema.properties = [RLMObjectSchema schemaForObjectClass:HugeSyncObject.class].properties;
+    config.customSchema = [[RLMSchema alloc] init];
+    config.customSchema.objectSchema = @[objectSchema];
+
+    RLMAssertThrowsWithReason([RLMRealm realmWithConfiguration:config error:nil],
+                              @"Property 'SyncObject.dataProp' has been added.");
+
+    @autoreleasepool {
+        NSError *error = [self asyncOpenErrorWithConfiguration:config];
+        XCTAssertNotEqual([error.localizedDescription rangeOfString:@"Property 'SyncObject.dataProp' has been added."].location,
+                          NSNotFound);
+    }
+}
+
+- (void)testAddPropertyToReadOnlyRealmWithAsyncOpen {
+    NSURL *url = REALM_URL();
+    RLMSyncUser *user = [self userForTest:_cmd];
+
+    if (!self.isParent) {
+        RLMRealm *realm = [self openRealmForURL:url user:user];
+        [self addSyncObjectsToRealm:realm descriptions:@[@"child-1", @"child-2", @"child-3"]];
+        [self waitForUploadsForRealm:realm];
+        return;
+    }
+    RLMRunChildAndWait();
+
+    RLMRealmConfiguration *config = [user configurationWithURL:url fullSynchronization:YES];
+    config.readOnly = true;
+
+    RLMObjectSchema *objectSchema = [RLMObjectSchema schemaForObjectClass:SyncObject.class];
+    objectSchema.properties = [RLMObjectSchema schemaForObjectClass:HugeSyncObject.class].properties;
+    config.customSchema = [[RLMSchema alloc] init];
+    config.customSchema.objectSchema = @[objectSchema];
+
+    @autoreleasepool {
+        NSError *error = [self asyncOpenErrorWithConfiguration:config];
+        XCTAssertNotEqual([error.localizedDescription rangeOfString:@"Property 'SyncObject.dataProp' has been added."].location,
+                          NSNotFound);
+    }
 }
 
 @end

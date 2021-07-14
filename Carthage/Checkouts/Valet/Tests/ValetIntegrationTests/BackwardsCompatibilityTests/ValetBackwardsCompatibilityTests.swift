@@ -89,10 +89,15 @@ class ValetBackwardsCompatibilityIntegrationTests: ValetIntegrationTests {
     // MARK: Tests
 
     func test_backwardsCompatibility_withLegacyValet() {
-        Valet.currentAndLegacyPermutations(with: valet.identifier).forEach { permutation, legacyValet in
+        Valet.currentAndLegacyPermutations(with: vanillaValet.identifier).forEach { permutation, legacyValet in
             legacyValet.setString(passcode, forKey: key)
 
             XCTAssertNotNil(legacyValet.string(forKey: key))
+            if #available(OSX 10.15, *) {
+                #if os(macOS)
+                _ = permutation.migrateObjectsFromPreCatalina()
+                #endif
+            }
             XCTAssertEqual(legacyValet.string(forKey: key), permutation.string(forKey: key), "\(permutation) was not able to read from legacy counterpart: \(legacyValet)")
         }
     }
@@ -102,6 +107,11 @@ class ValetBackwardsCompatibilityIntegrationTests: ValetIntegrationTests {
             legacyValet.setString(passcode, forKey: key)
 
             XCTAssertNotNil(legacyValet.string(forKey: key))
+            if #available(OSX 10.15, *) {
+                #if os(macOS)
+                _ = permutation.migrateObjectsFromPreCatalina()
+                #endif
+            }
             XCTAssertEqual(legacyValet.string(forKey: key), permutation.string(forKey: key), "\(permutation) was not able to read from legacy counterpart: \(legacyValet)")
         }
     }
