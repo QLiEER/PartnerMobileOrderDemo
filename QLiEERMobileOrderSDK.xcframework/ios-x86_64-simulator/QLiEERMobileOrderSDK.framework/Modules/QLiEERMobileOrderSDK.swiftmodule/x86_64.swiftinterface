@@ -1,0 +1,538 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 5.4 effective-4.1.50 (swiftlang-1205.0.26.9 clang-1205.0.19.55)
+// swift-module-flags: -target x86_64-apple-ios11.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 4 -enforce-exclusivity=checked -O -module-name QLiEERMobileOrderSDK
+import AVFoundation
+import Alamofire
+import CoreData
+import CoreLocation
+import Foundation
+import ImageIO
+import MapKit
+import ObjectMapper
+import PhoneNumberKit
+@_exported import QLiEERMobileOrderSDK
+import Reachability
+import RealmSwift
+import Swift
+import SwiftyJSON
+import SystemConfiguration
+import UIKit
+import Valet
+@objc public protocol QLiEERMobileSDKDelegate : ObjectiveC.NSObjectProtocol {
+  @objc func orderWillChange(orderID: Swift.String, inAction: Swift.Int, sourceView: UIKit.UIView, callback: @escaping ((Swift.Bool) -> ()))
+  @objc func orderWillArchive(orderId: Swift.String, sourceView: UIKit.UIView, callback: @escaping ((Swift.Bool) -> ()))
+  @objc func unreadCountUpdated(latestNumber: Swift.Int)
+  @objc func tokenInvalid()
+}
+@objc public enum OrderSortType : Swift.Int {
+  case CreateTime
+  case ReservationTime
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@objc public enum PushType : Swift.Int {
+  case qlieer
+  case inline
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@_inheritsConvenienceInitializers @objc public class QLiEERMobileSDK : ObjectiveC.NSObject {
+  @objc public static var unreadCount: Swift.Int
+  @objc public static func set(environment: QLiEERMobileOrderSDK.Environment)
+  @objc public static func start()
+  @objc public static func stop()
+  @objc public static func checkTokenIsValid() -> Swift.Bool
+  @objc public static func getVersion() -> Swift.String
+  @objc public static func launchMobileViewController(accessToken: Swift.String?, deviceToken: Swift.String, pushType: QLiEERMobileOrderSDK.PushType, withCancelBtn: Swift.Bool, orderSortType: QLiEERMobileOrderSDK.OrderSortType = OrderSortType.CreateTime, mobileSDKDelegate: QLiEERMobileOrderSDK.QLiEERMobileSDKDelegate, completion: @escaping ((Swift.Int, UIKit.UIViewController?) -> ()))
+  @objc override dynamic public init()
+  @objc deinit
+}
+@available(*, deprecated, renamed: "SwiftyJSONError.errorDomain", message: "ErrorDomain is deprecated. Use `SwiftyJSONError.errorDomain` instead.")
+public let ErrorDomain: Swift.String
+@available(*, deprecated, renamed: "SwiftyJSONError.unsupportedType", message: "ErrorUnsupportedType is deprecated. Use `SwiftyJSONError.unsupportedType` instead.")
+public let ErrorUnsupportedType: Swift.Int
+@available(*, deprecated, renamed: "SwiftyJSONError.indexOutOfBounds", message: "ErrorIndexOutOfBounds is deprecated. Use `SwiftyJSONError.indexOutOfBounds` instead.")
+public let ErrorIndexOutOfBounds: Swift.Int
+@available(*, deprecated, renamed: "SwiftyJSONError.wrongType", message: "ErrorWrongType is deprecated. Use `SwiftyJSONError.wrongType` instead.")
+public let ErrorWrongType: Swift.Int
+@available(*, deprecated, renamed: "SwiftyJSONError.notExist", message: "ErrorNotExist is deprecated. Use `SwiftyJSONError.notExist` instead.")
+public let ErrorNotExist: Swift.Int
+@available(*, deprecated, renamed: "SwiftyJSONError.invalidJSON", message: "ErrorInvalidJSON is deprecated. Use `SwiftyJSONError.invalidJSON` instead.")
+public let ErrorInvalidJSON: Swift.Int
+public enum SwiftyJSONError : Swift.Int, Swift.Error {
+  case unsupportedType
+  case indexOutOfBounds
+  case elementTooDeep
+  case wrongType
+  case notExist
+  case invalidJSON
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+extension SwiftyJSONError : Foundation.CustomNSError {
+  public static var errorDomain: Swift.String {
+    get
+  }
+  public var errorCode: Swift.Int {
+    get
+  }
+  public var errorUserInfo: [Swift.String : Any] {
+    get
+  }
+}
+public enum Type : Swift.Int {
+  case number
+  case string
+  case bool
+  case array
+  case dictionary
+  case null
+  case unknown
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+public struct JSON {
+  public init(data: Foundation.Data, options opt: Foundation.JSONSerialization.ReadingOptions = []) throws
+  public init(_ object: Any)
+  public init(parseJSON jsonString: Swift.String)
+  @available(*, deprecated, message: "Use instead `init(parseJSON: )`")
+  public static func parse(_ json: Swift.String) -> QLiEERMobileOrderSDK.JSON
+  public mutating func merge(with other: QLiEERMobileOrderSDK.JSON) throws
+  public func merged(with other: QLiEERMobileOrderSDK.JSON) throws -> QLiEERMobileOrderSDK.JSON
+  public var type: QLiEERMobileOrderSDK.`Type` {
+    get
+  }
+  public var error: QLiEERMobileOrderSDK.SwiftyJSONError? {
+    get
+  }
+  public var object: Any {
+    get
+    set
+  }
+  @available(*, unavailable, renamed: "null")
+  public static var nullJSON: QLiEERMobileOrderSDK.JSON {
+    get
+  }
+  public static var null: QLiEERMobileOrderSDK.JSON {
+    get
+  }
+}
+public enum Index<T> : Swift.Comparable {
+  case array(Swift.Int)
+  case dictionary(Swift.DictionaryIndex<Swift.String, T>)
+  case null
+  public static func == (lhs: QLiEERMobileOrderSDK.Index<T>, rhs: QLiEERMobileOrderSDK.Index<T>) -> Swift.Bool
+  public static func < (lhs: QLiEERMobileOrderSDK.Index<T>, rhs: QLiEERMobileOrderSDK.Index<T>) -> Swift.Bool
+}
+public typealias JSONIndex = QLiEERMobileOrderSDK.Index<QLiEERMobileOrderSDK.JSON>
+public typealias JSONRawIndex = QLiEERMobileOrderSDK.Index<Any>
+extension JSON : Swift.Collection {
+  public typealias Index = QLiEERMobileOrderSDK.JSONRawIndex
+  public var startIndex: QLiEERMobileOrderSDK.JSON.Index {
+    get
+  }
+  public var endIndex: QLiEERMobileOrderSDK.JSON.Index {
+    get
+  }
+  public func index(after i: QLiEERMobileOrderSDK.JSON.Index) -> QLiEERMobileOrderSDK.JSON.Index
+  public subscript(position: QLiEERMobileOrderSDK.JSON.Index) -> (Swift.String, QLiEERMobileOrderSDK.JSON) {
+    get
+  }
+  public typealias Element = (Swift.String, QLiEERMobileOrderSDK.JSON)
+  public typealias Indices = Swift.DefaultIndices<QLiEERMobileOrderSDK.JSON>
+  public typealias Iterator = Swift.IndexingIterator<QLiEERMobileOrderSDK.JSON>
+  public typealias SubSequence = Swift.Slice<QLiEERMobileOrderSDK.JSON>
+}
+public enum JSONKey {
+  case index(Swift.Int)
+  case key(Swift.String)
+}
+public protocol JSONSubscriptType {
+  var jsonKey: QLiEERMobileOrderSDK.JSONKey { get }
+}
+extension Int : QLiEERMobileOrderSDK.JSONSubscriptType {
+  public var jsonKey: QLiEERMobileOrderSDK.JSONKey {
+    get
+  }
+}
+extension String : QLiEERMobileOrderSDK.JSONSubscriptType {
+  public var jsonKey: QLiEERMobileOrderSDK.JSONKey {
+    get
+  }
+}
+extension JSON {
+  public subscript(path: [QLiEERMobileOrderSDK.JSONSubscriptType]) -> QLiEERMobileOrderSDK.JSON {
+    get
+    set
+  }
+  public subscript(path: QLiEERMobileOrderSDK.JSONSubscriptType...) -> QLiEERMobileOrderSDK.JSON {
+    get
+    set
+  }
+}
+extension JSON : Swift.ExpressibleByStringLiteral {
+  public init(stringLiteral value: Swift.StringLiteralType)
+  public init(extendedGraphemeClusterLiteral value: Swift.StringLiteralType)
+  public init(unicodeScalarLiteral value: Swift.StringLiteralType)
+  public typealias ExtendedGraphemeClusterLiteralType = Swift.StringLiteralType
+  public typealias StringLiteralType = Swift.StringLiteralType
+  public typealias UnicodeScalarLiteralType = Swift.StringLiteralType
+}
+extension JSON : Swift.ExpressibleByIntegerLiteral {
+  public init(integerLiteral value: Swift.IntegerLiteralType)
+  public typealias IntegerLiteralType = Swift.IntegerLiteralType
+}
+extension JSON : Swift.ExpressibleByBooleanLiteral {
+  public init(booleanLiteral value: Swift.BooleanLiteralType)
+  public typealias BooleanLiteralType = Swift.BooleanLiteralType
+}
+extension JSON : Swift.ExpressibleByFloatLiteral {
+  public init(floatLiteral value: Swift.FloatLiteralType)
+  public typealias FloatLiteralType = Swift.FloatLiteralType
+}
+extension JSON : Swift.ExpressibleByDictionaryLiteral {
+  public init(dictionaryLiteral elements: (Swift.String, Any)...)
+  public typealias Key = Swift.String
+  public typealias Value = Any
+}
+extension JSON : Swift.ExpressibleByArrayLiteral {
+  public init(arrayLiteral elements: Any...)
+  public typealias ArrayLiteralElement = Any
+}
+extension JSON : Swift.ExpressibleByNilLiteral {
+  @available(*, deprecated, message: "use JSON.null instead. Will be removed in future versions")
+  public init(nilLiteral: ())
+}
+extension JSON : Swift.RawRepresentable {
+  public init?(rawValue: Any)
+  public var rawValue: Any {
+    get
+  }
+  public func rawData(options opt: Foundation.JSONSerialization.WritingOptions = JSONSerialization.WritingOptions(rawValue: 0)) throws -> Foundation.Data
+  public func rawString(_ encoding: Swift.String.Encoding = .utf8, options opt: Foundation.JSONSerialization.WritingOptions = .prettyPrinted) -> Swift.String?
+  public func rawString(_ options: [QLiEERMobileOrderSDK.writingOptionsKeys : Any]) -> Swift.String?
+  public typealias RawValue = Any
+}
+extension JSON : Swift.CustomStringConvertible, Swift.CustomDebugStringConvertible {
+  public var description: Swift.String {
+    get
+  }
+  public var debugDescription: Swift.String {
+    get
+  }
+}
+extension JSON {
+  public var array: [QLiEERMobileOrderSDK.JSON]? {
+    get
+  }
+  public var arrayValue: [QLiEERMobileOrderSDK.JSON] {
+    get
+  }
+  public var arrayObject: [Any]? {
+    get
+    set
+  }
+}
+extension JSON {
+  public var dictionary: [Swift.String : QLiEERMobileOrderSDK.JSON]? {
+    get
+  }
+  public var dictionaryValue: [Swift.String : QLiEERMobileOrderSDK.JSON] {
+    get
+  }
+  public var dictionaryObject: [Swift.String : Any]? {
+    get
+    set
+  }
+}
+extension JSON {
+  public var bool: Swift.Bool? {
+    get
+    set
+  }
+  public var boolValue: Swift.Bool {
+    get
+    set
+  }
+}
+extension JSON {
+  public var string: Swift.String? {
+    get
+    set
+  }
+  public var stringValue: Swift.String {
+    get
+    set
+  }
+}
+extension JSON {
+  public var number: Foundation.NSNumber? {
+    get
+    set
+  }
+  public var numberValue: Foundation.NSNumber {
+    get
+    set
+  }
+}
+extension JSON {
+  public var null: Foundation.NSNull? {
+    get
+    set
+  }
+  public func exists() -> Swift.Bool
+}
+extension JSON {
+  public var url: Foundation.URL? {
+    get
+    set
+  }
+}
+extension JSON {
+  public var double: Swift.Double? {
+    get
+    set
+  }
+  public var doubleValue: Swift.Double {
+    get
+    set
+  }
+  public var float: Swift.Float? {
+    get
+    set
+  }
+  public var floatValue: Swift.Float {
+    get
+    set
+  }
+  public var int: Swift.Int? {
+    get
+    set
+  }
+  public var intValue: Swift.Int {
+    get
+    set
+  }
+  public var uInt: Swift.UInt? {
+    get
+    set
+  }
+  public var uIntValue: Swift.UInt {
+    get
+    set
+  }
+  public var int8: Swift.Int8? {
+    get
+    set
+  }
+  public var int8Value: Swift.Int8 {
+    get
+    set
+  }
+  public var uInt8: Swift.UInt8? {
+    get
+    set
+  }
+  public var uInt8Value: Swift.UInt8 {
+    get
+    set
+  }
+  public var int16: Swift.Int16? {
+    get
+    set
+  }
+  public var int16Value: Swift.Int16 {
+    get
+    set
+  }
+  public var uInt16: Swift.UInt16? {
+    get
+    set
+  }
+  public var uInt16Value: Swift.UInt16 {
+    get
+    set
+  }
+  public var int32: Swift.Int32? {
+    get
+    set
+  }
+  public var int32Value: Swift.Int32 {
+    get
+    set
+  }
+  public var uInt32: Swift.UInt32? {
+    get
+    set
+  }
+  public var uInt32Value: Swift.UInt32 {
+    get
+    set
+  }
+  public var int64: Swift.Int64? {
+    get
+    set
+  }
+  public var int64Value: Swift.Int64 {
+    get
+    set
+  }
+  public var uInt64: Swift.UInt64? {
+    get
+    set
+  }
+  public var uInt64Value: Swift.UInt64 {
+    get
+    set
+  }
+}
+extension JSON : Swift.Comparable {
+}
+public func == (lhs: QLiEERMobileOrderSDK.JSON, rhs: QLiEERMobileOrderSDK.JSON) -> Swift.Bool
+public func <= (lhs: QLiEERMobileOrderSDK.JSON, rhs: QLiEERMobileOrderSDK.JSON) -> Swift.Bool
+public func >= (lhs: QLiEERMobileOrderSDK.JSON, rhs: QLiEERMobileOrderSDK.JSON) -> Swift.Bool
+public func > (lhs: QLiEERMobileOrderSDK.JSON, rhs: QLiEERMobileOrderSDK.JSON) -> Swift.Bool
+public func < (lhs: QLiEERMobileOrderSDK.JSON, rhs: QLiEERMobileOrderSDK.JSON) -> Swift.Bool
+public enum writingOptionsKeys {
+  case jsonSerialization
+  case castNilToNSNull
+  case maxObjextDepth
+  case encoding
+  public static func == (a: QLiEERMobileOrderSDK.writingOptionsKeys, b: QLiEERMobileOrderSDK.writingOptionsKeys) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+@objc public protocol CAPSPageMenuDelegate {
+  @objc optional func willMoveToPage(_ controller: UIKit.UIViewController, index: Swift.Int)
+  @objc optional func didMoveToPage(_ controller: UIKit.UIViewController, index: Swift.Int)
+}
+@objc open class CAPSPageMenu : UIKit.UIViewController {
+  public var currentPageIndex: Swift.Int
+  weak open var delegate: QLiEERMobileOrderSDK.CAPSPageMenuDelegate?
+  public init(viewControllers: [UIKit.UIViewController], frame: CoreGraphics.CGRect, options: [Swift.String : Swift.AnyObject]?)
+  convenience public init(viewControllers: [UIKit.UIViewController], frame: CoreGraphics.CGRect, pageMenuOptions: [QLiEERMobileOrderSDK.CAPSPageMenuOption]?)
+  public init(viewControllers: [UIKit.UIViewController], frame: CoreGraphics.CGRect, configuration: QLiEERMobileOrderSDK.CAPSPageMenuConfiguration)
+  public init(viewControllers: [UIKit.UIViewController], in controller: UIKit.UIViewController, with configuration: QLiEERMobileOrderSDK.CAPSPageMenuConfiguration, usingStoryboards: Swift.Bool = false)
+  @objc required dynamic public init?(coder aDecoder: Foundation.NSCoder)
+  @objc override dynamic public init(nibName nibNameOrNil: Swift.String?, bundle nibBundleOrNil: Foundation.Bundle?)
+  @objc deinit
+}
+extension CAPSPageMenu {
+  @objc override dynamic open func viewDidLayoutSubviews()
+  open func moveToPage(_ index: Swift.Int)
+}
+extension UIImage {
+  public class func gifImageWithData(_ data: Foundation.Data) -> UIKit.UIImage?
+  public class func gifImageWithURL(_ gifUrl: Swift.String) -> UIKit.UIImage?
+  public class func gifImageWithName(_ name: Swift.String) -> UIKit.UIImage?
+}
+public class CAPSPageMenuConfiguration {
+  open var menuHeight: CoreGraphics.CGFloat
+  open var menuMargin: CoreGraphics.CGFloat
+  open var menuItemWidth: CoreGraphics.CGFloat
+  open var selectionIndicatorHeight: CoreGraphics.CGFloat
+  open var scrollAnimationDurationOnMenuItemTap: Swift.Int
+  open var selectionIndicatorColor: UIKit.UIColor
+  open var selectedMenuItemLabelColor: UIKit.UIColor
+  open var unselectedMenuItemLabelColor: UIKit.UIColor
+  open var scrollMenuBackgroundColor: UIKit.UIColor
+  open var viewBackgroundColor: UIKit.UIColor
+  open var bottomMenuHairlineColor: UIKit.UIColor
+  open var menuItemSeparatorColor: UIKit.UIColor
+  open var menuItemFont: UIKit.UIFont
+  open var menuItemSeparatorPercentageHeight: CoreGraphics.CGFloat
+  open var menuItemSeparatorWidth: CoreGraphics.CGFloat
+  open var menuItemSeparatorRoundEdges: Swift.Bool
+  open var addBottomMenuHairline: Swift.Bool
+  open var menuItemWidthBasedOnTitleTextWidth: Swift.Bool
+  open var titleTextSizeBasedOnMenuItemWidth: Swift.Bool
+  open var useMenuLikeSegmentedControl: Swift.Bool
+  open var centerMenuItems: Swift.Bool
+  open var enableHorizontalBounce: Swift.Bool
+  open var hideTopMenuBar: Swift.Bool
+  public init()
+  @objc deinit
+}
+@objc public enum Environment : Swift.Int {
+  case Stage
+  case Production
+  case Dev
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+extension CAPSPageMenu : UIKit.UIGestureRecognizerDelegate {
+}
+extension CAPSPageMenu : UIKit.UIScrollViewDelegate {
+  @objc dynamic open func scrollViewDidScroll(_ scrollView: UIKit.UIScrollView)
+  @objc dynamic open func scrollViewDidEndDecelerating(_ scrollView: UIKit.UIScrollView)
+}
+public typealias Success = (QLiEERMobileOrderSDK.JSON) -> ()
+public typealias Failure = (Swift.Error) -> ()
+public struct ArrayEncoding : Alamofire.ParameterEncoding {
+  public let options: Foundation.JSONSerialization.WritingOptions
+  public init(options: Foundation.JSONSerialization.WritingOptions = [])
+  public func encode(_ urlRequest: Alamofire.URLRequestConvertible, with parameters: Alamofire.Parameters?) throws -> Foundation.URLRequest
+}
+public enum CAPSPageMenuOption {
+  case selectionIndicatorHeight(CoreGraphics.CGFloat)
+  case menuItemSeparatorWidth(CoreGraphics.CGFloat)
+  case scrollMenuBackgroundColor(UIKit.UIColor)
+  case viewBackgroundColor(UIKit.UIColor)
+  case bottomMenuHairlineColor(UIKit.UIColor)
+  case selectionIndicatorColor(UIKit.UIColor)
+  case menuItemSeparatorColor(UIKit.UIColor)
+  case menuMargin(CoreGraphics.CGFloat)
+  case menuItemMargin(CoreGraphics.CGFloat)
+  case menuHeight(CoreGraphics.CGFloat)
+  case selectedMenuItemLabelColor(UIKit.UIColor)
+  case unselectedMenuItemLabelColor(UIKit.UIColor)
+  case useMenuLikeSegmentedControl(Swift.Bool)
+  case menuItemSeparatorRoundEdges(Swift.Bool)
+  case menuItemFont(UIKit.UIFont)
+  case menuItemSeparatorPercentageHeight(CoreGraphics.CGFloat)
+  case menuItemWidth(CoreGraphics.CGFloat)
+  case enableHorizontalBounce(Swift.Bool)
+  case addBottomMenuHairline(Swift.Bool)
+  case menuItemWidthBasedOnTitleTextWidth(Swift.Bool)
+  case titleTextSizeBasedOnMenuItemWidth(Swift.Bool)
+  case scrollAnimationDurationOnMenuItemTap(Swift.Int)
+  case centerMenuItems(Swift.Bool)
+  case hideTopMenuBar(Swift.Bool)
+}
+extension Collection {
+  public func chunk(n: Swift.Int) -> [Self.SubSequence]
+}
+extension QLiEERMobileOrderSDK.OrderSortType : Swift.Equatable {}
+extension QLiEERMobileOrderSDK.OrderSortType : Swift.Hashable {}
+extension QLiEERMobileOrderSDK.OrderSortType : Swift.RawRepresentable {}
+extension QLiEERMobileOrderSDK.PushType : Swift.Equatable {}
+extension QLiEERMobileOrderSDK.PushType : Swift.Hashable {}
+extension QLiEERMobileOrderSDK.PushType : Swift.RawRepresentable {}
+extension QLiEERMobileOrderSDK.SwiftyJSONError : Swift.Equatable {}
+extension QLiEERMobileOrderSDK.SwiftyJSONError : Swift.Hashable {}
+extension QLiEERMobileOrderSDK.SwiftyJSONError : Swift.RawRepresentable {}
+extension QLiEERMobileOrderSDK.`Type` : Swift.Equatable {}
+extension QLiEERMobileOrderSDK.`Type` : Swift.Hashable {}
+extension QLiEERMobileOrderSDK.`Type` : Swift.RawRepresentable {}
+extension QLiEERMobileOrderSDK.writingOptionsKeys : Swift.Equatable {}
+extension QLiEERMobileOrderSDK.writingOptionsKeys : Swift.Hashable {}
+extension QLiEERMobileOrderSDK.Environment : Swift.Equatable {}
+extension QLiEERMobileOrderSDK.Environment : Swift.Hashable {}
+extension QLiEERMobileOrderSDK.Environment : Swift.RawRepresentable {}
